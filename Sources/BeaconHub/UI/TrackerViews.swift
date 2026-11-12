@@ -298,6 +298,10 @@ struct IssueDetailView: View {
     @State private var commentText = ""
     @State private var busy = false
     @State private var message: (text: String, isError: Bool)?
+    /// Переход, который ждёт комментария, и сам текст.
+    @State private var pendingTransition: TTransition?
+    @State private var transitionComment = ""
+    @FocusState private var transitionCommentFocused: Bool
 
     private var issue: TIssue? {
         TaskFilter.allCases.lazy.flatMap { tracker.issues($0) }.first { $0.key == issueKey } ?? loadedIssue
@@ -336,8 +340,7 @@ struct IssueDetailView: View {
                     if transitions.isEmpty { Text("Нет доступных переходов") }
                     ForEach(transitions) { t in
                         Button(t.display == t.to.display ? t.display : "\(t.display) → \(t.to.display)") {
-                            run { try await tracker.execute(t, on: issue) } success: { "Статус: \(t.to.display)" }
-                            Task { await loadTransitions() }
+                            startTransition(t, on: issue)
                         }
                     }
                 } else {
@@ -358,6 +361,8 @@ struct IssueDetailView: View {
                 Label(spent, systemImage: "clock").font(.caption).foregroundStyle(.secondary)
             }
         }
+
+        if let t = pendingTransition { transitionCommentForm(t, issue) }
 
         // Таймер
         timerRow(issue)
@@ -467,7 +472,70 @@ struct IssueDetailView: View {
         }
     }
 
+    /// Поле комментария к переходу: текст подставлен заранее, его можно поправить.
+    private func transitionCommentForm(_ t: TTransition, _ issue: TIssue) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 4) {
+                Image(systemName: "arrow.right.circle.fill").foregroundStyle(.blue)
+                Text("Перевести в «\(t.to.display)»").font(.callout.weight(.semibold))
+                Spacer()
+            }
+            TextField("Комментарий к переходу", text: $transitionComment, axis: .vertical)
+                .textFieldStyle(.roundedBorder)
+                .lineLimit(1...4)
+                .focused($transitionCommentFocused)
+                .onSubmit { executeTransition(t, on: issue, comment: transitionComment) }
+            HStack {
+                Text("Трекер требует комментарий для этого перехода").font(.caption).foregroundStyle(.secondary)
+                Spacer()
+                Button("Отмена") { pendingTransition = nil }
+                Button("Перевести") { executeTransition(t, on: issue, comment: transitionComment) }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(transitionComment.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || busy)
+            }
+            .controlSize(.small)
+        }
+        .padding(8)
+        .background(RoundedRectangle(cornerRadius: 8).fill(Color.blue.opacity(0.1)))
+    }
+
     // MARK: Действия
+
+    private func startTransition(_ t: TTransition, on issue: TIssue) {
+        if TransitionComments.isRequired(t, issue) {
+            askComment(t)
+        } else {
+            executeTransition(t, on: issue, comment: nil)
+        }
+    }
+
+    private func askComment(_ t: TTransition) {
+        transitionComment = TransitionComments.defaultText(for: t)
+        pendingTransition = t
+        message = nil
+        DispatchQueue.main.async { transitionCommentFocused = true }
+    }
+
+    private func executeTransition(_ t: TTransition, on issue: TIssue, comment: String?) {
+        let text = comment?.trimmingCharacters(in: .whitespacesAndNewlines)
+        busy = true
+        Task {
+            do {
+                try await tracker.execute(t, on: issue, comment: text)
+                if let text, !text.isEmpty { TransitionComments.remember(text, for: t) }
+                pendingTransition = nil
+                message = ("Статус: \(t.to.display)", false)
+                await loadTransitions()
+            } catch let error as TrackerError where error.needsComment && (text ?? "").isEmpty {
+                // Без комментария не пускает: запоминаем и показываем поле с текстом по умолчанию.
+                TransitionComments.markRequired(t, issue)
+                askComment(t)
+            } catch {
+                message = (error.localizedDescription, true)
+            }
+            busy = false
+        }
+    }
 
     private func log(_ issue: TIssue, minutes: Int) {
         let comment = logComment

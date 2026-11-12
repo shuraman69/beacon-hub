@@ -253,3 +253,44 @@ enum Linkify {
         return (try? AttributedString(ns, including: \.foundation)) ?? base
     }
 }
+
+/// Комментарии к переходам статуса. Некоторые переходы трекер не выполняет без комментария:
+/// такие запоминаем, чтобы в следующий раз сразу показать поле, а текст, который ввёл пользователь,
+/// подставляем по умолчанию для того же целевого статуса.
+enum TransitionComments {
+    private static let requiredKey = "trackerTransitionsNeedComment"
+    private static let textsKey = "trackerTransitionComments"
+
+    private static func id(_ t: TTransition, _ issue: TIssue) -> String { "\(issue.queue?.key ?? "")/\(t.id)" }
+
+    static func isRequired(_ t: TTransition, _ issue: TIssue) -> Bool {
+        (UserDefaults.standard.stringArray(forKey: requiredKey) ?? []).contains(id(t, issue))
+    }
+
+    static func markRequired(_ t: TTransition, _ issue: TIssue) {
+        var list = UserDefaults.standard.stringArray(forKey: requiredKey) ?? []
+        if !list.contains(id(t, issue)) { list.append(id(t, issue)) }
+        UserDefaults.standard.set(list, forKey: requiredKey)
+    }
+
+    static func defaultText(for t: TTransition) -> String {
+        let saved = UserDefaults.standard.dictionary(forKey: textsKey) as? [String: String] ?? [:]
+        if let text = saved[t.to.key ?? t.to.display] { return text }
+        let key = (t.to.key ?? "").lowercased()
+        let name = t.to.display.lowercased()
+        if key.contains("test") || name.contains("тест") { return "Готово к тестированию" }
+        if key.contains("review") || name.contains("ревью") { return "Готово к ревью" }
+        if key == "inprogress" || name.contains("в работе") { return "Взял в работу" }
+        if key.contains("needinfo") || name.contains("информац") { return "Нужна дополнительная информация" }
+        if ["closed", "resolved", "done"].contains(where: key.contains) || name.contains("закрыт") || name.contains("решен") {
+            return "Готово"
+        }
+        return "Перевожу в «\(t.to.display)»"
+    }
+
+    static func remember(_ text: String, for t: TTransition) {
+        var saved = UserDefaults.standard.dictionary(forKey: textsKey) as? [String: String] ?? [:]
+        saved[t.to.key ?? t.to.display] = text
+        UserDefaults.standard.set(saved, forKey: textsKey)
+    }
+}

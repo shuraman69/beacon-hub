@@ -198,8 +198,8 @@ final class TrackerStore: ObservableObject {
         try await TrackerAPI.transitions(key)
     }
 
-    func execute(_ transition: TTransition, on issue: TIssue) async throws {
-        try await TrackerAPI.executeTransition(issue.key, transition.id)
+    func execute(_ transition: TTransition, on issue: TIssue, comment: String? = nil) async throws {
+        try await TrackerAPI.executeTransition(issue.key, transition.id, comment: comment)
         await reload(issue.key)
         Task { await refresh() } // задача могла переехать между списками
     }

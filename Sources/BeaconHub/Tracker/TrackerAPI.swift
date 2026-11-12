@@ -12,6 +12,12 @@ enum TrackerError: LocalizedError {
         case .http(let code, let message): return "Трекер ответил \(code): \(message)"
         }
     }
+
+    /// Переход требует комментарий (422 «Вы должны указать значения для полей comment»).
+    var needsComment: Bool {
+        if case .http(422, let message) = self { return message.lowercased().contains("comment") }
+        return false
+    }
 }
 
 /// Токен лежит в Keychain и читается через /usr/bin/security. Тот же токен использует MCP трекера в Claude Code:
@@ -103,8 +109,10 @@ enum TrackerAPI {
         try decoder.decode([TTransition].self, from: try await raw("GET", "issues/\(key)/transitions"))
     }
 
-    static func executeTransition(_ key: String, _ transitionID: String) async throws {
-        _ = try await raw("POST", "issues/\(key)/transitions/\(transitionID)/_execute", body: [String: Any]())
+    static func executeTransition(_ key: String, _ transitionID: String, comment: String? = nil) async throws {
+        var body: [String: Any] = [:]
+        if let comment, !comment.isEmpty { body["comment"] = comment }
+        _ = try await raw("POST", "issues/\(key)/transitions/\(transitionID)/_execute", body: body)
     }
 
     static func comments(_ key: String) async throws -> [TComment] {
