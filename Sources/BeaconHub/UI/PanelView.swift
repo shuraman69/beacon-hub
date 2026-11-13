@@ -31,6 +31,7 @@ struct PanelView: View {
     @ObservedObject var settings: AppSettings
     @ObservedObject var tracker: TrackerStore
     @ObservedObject var notes: NotesStore
+    @ObservedObject private var shelf = ShelfStore.shared
     let openSettings: () -> Void
     let runTool: (ToolAction) -> Void
 
@@ -198,6 +199,9 @@ struct PanelView: View {
             if settings.clipboardEnabled {
                 ToolButton(title: "Буфер", systemImage: "doc.on.clipboard",
                            shortcut: settings.clipboardShortcut?.display) { runTool(.clipboard) }
+            }
+            if settings.shelfEnabled && !shelf.items.isEmpty {
+                ToolButton(title: "Полка", systemImage: "tray.full", shortcut: "\(shelf.items.count)") { runTool(.shelf) }
             }
             Spacer(minLength: 4)
             Button(action: openSettings) { Image(systemName: "gearshape") }
@@ -414,7 +418,7 @@ struct PipelineRow: View {
     }
 }
 
-enum ToolAction { case captureText, clipboard }
+enum ToolAction { case captureText, clipboard, shelf }
 
 struct ToolButton: View {
     let title: String

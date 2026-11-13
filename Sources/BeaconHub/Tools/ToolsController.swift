@@ -10,6 +10,7 @@ final class ToolsController: ObservableObject {
     let textCapture: TextCapture
     let clipboardStore: ClipboardStore
     let clipboardPanel: ClipboardPanelController
+    let shelf: ShelfController
 
     /// Ошибки регистрации горячих клавиш (обычно сочетание уже занято другим приложением).
     @Published private(set) var hotKeyErrors: [HotKeyID: String] = [:]
@@ -20,6 +21,7 @@ final class ToolsController: ObservableObject {
         textCapture = TextCapture(settings: settings)
         clipboardStore = ClipboardStore(settings: settings)
         clipboardPanel = ClipboardPanelController(store: clipboardStore, settings: settings)
+        shelf = ShelfController(store: .shared, settings: settings)
     }
 
     func start() {
@@ -29,9 +31,10 @@ final class ToolsController: ObservableObject {
             settings.$ocrEnabled.map { _ in () }.eraseToAnyPublisher(),
             settings.$ocrShortcut.map { _ in () }.eraseToAnyPublisher(),
             settings.$clipboardEnabled.map { _ in () }.eraseToAnyPublisher(),
-            settings.$clipboardShortcut.map { _ in () }.eraseToAnyPublisher()
+            settings.$clipboardShortcut.map { _ in () }.eraseToAnyPublisher(),
+            settings.$shelfEnabled.map { _ in () }.eraseToAnyPublisher()
         )
-        .dropFirst(4)
+        .dropFirst(5)
         .receive(on: RunLoop.main)
         .sink { [weak self] in self?.apply() }
         .store(in: &cancellables)
@@ -47,6 +50,10 @@ final class ToolsController: ObservableObject {
         textCapture.start()
     }
 
+    func toggleShelf() {
+        shelf.toggle()
+    }
+
     func toggleClipboard() {
         guard settings.clipboardEnabled else { return }
         clipboardPanel.toggle()
@@ -60,6 +67,7 @@ final class ToolsController: ObservableObject {
             self?.toggleClipboard()
         }
         if settings.ocrEnabled { textCapture.warmUp() }
+        if settings.shelfEnabled { shelf.start() } else { shelf.stop() }
         if settings.clipboardEnabled {
             clipboardStore.start()
         } else {

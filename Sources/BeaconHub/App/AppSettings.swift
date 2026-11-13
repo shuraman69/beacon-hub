@@ -50,6 +50,8 @@ final class AppSettings: ObservableObject {
     @Published var clipboardMaxItems: Int { didSet { defaults.set(clipboardMaxItems, forKey: "clipboardMaxItems") } }
     @Published var clipboardPasteDirectly: Bool { didSet { defaults.set(clipboardPasteDirectly, forKey: "clipboardPasteDirectly") } }
     @Published var clipboardSaveImages: Bool { didSet { defaults.set(clipboardSaveImages, forKey: "clipboardSaveImages") } }
+    @Published var shelfEnabled: Bool { didSet { defaults.set(shelfEnabled, forKey: "shelfEnabled") } }
+    @Published var shelfTrigger: ShelfTrigger { didSet { defaults.set(shelfTrigger.rawValue, forKey: "shelfTrigger") } }
 
     // Яндекс Трекер
     @Published var trackerEnabled: Bool { didSet { defaults.set(trackerEnabled, forKey: "trackerEnabled") } }
@@ -88,6 +90,8 @@ final class AppSettings: ObservableObject {
         clipboardMaxItems = d.object(forKey: "clipboardMaxItems") as? Int ?? 200
         clipboardPasteDirectly = d.object(forKey: "clipboardPasteDirectly") as? Bool ?? true
         clipboardSaveImages = d.object(forKey: "clipboardSaveImages") as? Bool ?? true
+        shelfEnabled = d.object(forKey: "shelfEnabled") as? Bool ?? true
+        shelfTrigger = ShelfTrigger(rawValue: d.string(forKey: "shelfTrigger") ?? "") ?? .anyDrag
 
         trackerEnabled = d.object(forKey: "trackerEnabled") as? Bool ?? true
         trackerOrgId = d.string(forKey: "trackerOrgId") ?? ""

@@ -29,6 +29,7 @@ final class StatusItemController: NSObject {
                 switch action {
                 case .captureText: tools.captureText()
                 case .clipboard: tools.toggleClipboard()
+                case .shelf: tools.toggleShelf()
                 }
             }
         })
@@ -42,7 +43,13 @@ final class StatusItemController: NSObject {
             button.imagePosition = .imageLeading
         }
 
-        state.objectWillChange.merge(with: settings.objectWillChange, state.tracker.objectWillChange)
+        tools.shelf.anchor = { [weak self] in
+            guard let button = self?.item.button, let window = button.window else { return nil }
+            return window.convertToScreen(button.convert(button.bounds, to: nil))
+        }
+
+        state.objectWillChange.merge(with: settings.objectWillChange, state.tracker.objectWillChange,
+                                     ShelfStore.shared.objectWillChange)
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 // objectWillChange приходит до изменения, поэтому откладываем на следующий тик.
@@ -98,6 +105,8 @@ final class StatusItemController: NSObject {
         }
         let percent = menuBarTitle()
         if !percent.isEmpty { append(percent) }
+        let shelfCount = ShelfStore.shared.items.count
+        if shelfCount > 0 { append("📎\(shelfCount)") }
         let unread = state.tracker.unreadCount
         if unread > 0 { append("●\(unread)", color: .systemRed) }
         button.attributedTitle = title

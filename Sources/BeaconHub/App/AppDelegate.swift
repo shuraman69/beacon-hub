@@ -129,6 +129,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             window.orderOut(nil)
         }
+        do {
+            let view = ShelfView(store: .shared, close: {}).background(Color(nsColor: .windowBackgroundColor))
+            let host = NSHostingView(rootView: view)
+            let window = NSWindow(contentRect: NSRect(x: -5000, y: 0, width: 240, height: 300),
+                                  styleMask: [.borderless], backing: .buffered, defer: false)
+            window.contentView = host
+            window.orderFrontRegardless()
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            window.setContentSize(host.fittingSize)
+            host.layoutSubtreeIfNeeded()
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            if let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) {
+                host.cacheDisplay(in: host.bounds, to: rep)
+                try? rep.representation(using: .png, properties: [:])?
+                    .write(to: URL(fileURLWithPath: dir).appendingPathComponent("panel-shelf.png"))
+            }
+            window.orderOut(nil)
+        }
         settings.panelTab = previousTab
         NSApp.terminate(nil)
     }

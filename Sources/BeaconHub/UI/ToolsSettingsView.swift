@@ -6,6 +6,7 @@ struct ToolsSettingsView: View {
     @ObservedObject var settings: AppSettings
     @ObservedObject var tools: ToolsController
     @ObservedObject var store: ClipboardStore
+    @ObservedObject private var shelf = ShelfStore.shared
 
     @State private var screenAccess = CGPreflightScreenCaptureAccess()
     @State private var axAccess = AXIsProcessTrusted()
@@ -63,6 +64,24 @@ struct ToolsSettingsView: View {
                 Text("История буфера обмена")
             } footer: {
                 Text("Пароли из менеджеров паролей и «Связки ключей» не сохраняются. История лежит локально в ~/Library/Application Support/BeaconHub/Clipboard.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+
+            Section {
+                Toggle("Включено", isOn: $settings.shelfEnabled)
+                Picker("Показывать полку", selection: $settings.shelfTrigger) {
+                    ForEach(ShelfTrigger.allCases) { Text($0.title).tag($0) }
+                }
+                HStack {
+                    Text("На полке: \(shelf.items.count)").foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Открыть") { tools.toggleShelf() }.disabled(!settings.shelfEnabled)
+                    Button("Очистить", role: .destructive) { shelf.clear() }.disabled(shelf.items.isEmpty)
+                }
+            } header: {
+                Text("Полка для файлов")
+            } footer: {
+                Text("Начни тащить файл, и под маяком появится полка. Брось файл туда, и на полке появится его копия. Вытащи файл с полки в любое приложение, и копия удалится. Разрешения macOS не нужны.")
                     .font(.caption).foregroundStyle(.secondary)
             }
         }
