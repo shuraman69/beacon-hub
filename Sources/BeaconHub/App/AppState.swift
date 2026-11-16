@@ -1,11 +1,17 @@
 import Combine
 import Foundation
+import Network
 
 /// Состояние всех источников и фоновый цикл опроса.
 @MainActor
 final class AppState: ObservableObject {
     @Published private(set) var claudeUsage: ClaudeUsage?
     @Published private(set) var claudeError: String?
+    /// Claude ждёт VPN: запросы не отправляются.
+    @Published private(set) var claudeWaitingVPN = false
+    /// Запрос однажды ушёл мимо прокси: опрос остановлен до ручного обновления.
+    private var claudeHalted = false
+    private let pathMonitor = NWPathMonitor()
     @Published private(set) var gitlab: [ProjectPipelines] = []
     @Published private(set) var isRefreshing = false
     @Published private(set) var lastRefresh: Date?
@@ -40,6 +46,15 @@ final class AppState: ObservableObject {
     }
 
     func start() {
+        // Сеть поменялась (подключили VPN): если ждали VPN, сразу пробуем снова.
+        pathMonitor.pathUpdateHandler = { [weak self] _ in
+            Task { @MainActor in
+                guard let self, self.claudeWaitingVPN else { return }
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
+                await self.refreshClaude(force: true)
+            }
+        }
+        pathMonitor.start(queue: .global(qos: .utility))
         loopTask?.cancel()
         loopTask = Task { [weak self] in
             while !Task.isCancelled {
@@ -78,12 +93,23 @@ final class AppState: ObservableObject {
 
     private func refreshClaude(force: Bool) async {
         guard settings.showClaude else { return }
+        if claudeHalted && !force { return }
         if !force, let last = lastClaudeFetch,
            Date().timeIntervalSince(last) < max(settings.refreshInterval, claudeMinInterval) { return }
         lastClaudeFetch = Date()
         do {
             claudeUsage = try await ClaudeUsageProvider.fetch()
             claudeError = nil
+            claudeWaitingVPN = false
+            claudeHalted = false
+        } catch VPNOnlyError.noVPN {
+            claudeWaitingVPN = true
+            claudeError = VPNOnlyError.noVPN.localizedDescription
+        } catch VPNOnlyError.notThroughProxy {
+            Log.info("Claude: запрос прошёл мимо прокси, опрос остановлен")
+            claudeHalted = true
+            claudeWaitingVPN = false
+            claudeError = VPNOnlyError.notThroughProxy.localizedDescription
         } catch {
             Log.info("Claude: \(error.localizedDescription)")
             claudeError = error.localizedDescription

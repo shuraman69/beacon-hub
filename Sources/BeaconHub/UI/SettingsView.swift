@@ -282,6 +282,11 @@ struct ClaudeSettingsView: View {
 
             Section {
                 Toggle("Показывать лимиты Claude", isOn: $settings.showClaude)
+                Toggle("Запрашивать лимиты только через VPN", isOn: $settings.claudeRequireVPN)
+                    .onChange(of: settings.claudeRequireVPN) { _, _ in Task { await state.refresh(force: true) } }
+                Text("Когда включено, запрос к api.anthropic.com уходит только через VPN-туннель (Happ, WireGuard, Outline и т. п.) или системный прокси VPN-клиента. Wi-Fi, Ethernet и сотовая сеть для него запрещены, поэтому без VPN запрос физически не отправится и реальный IP не попадёт к Anthropic. Если хост исключён из туннеля, запрос тоже не уйдёт.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 Picker("Процент в статус-баре", selection: $settings.menuBarPercent) {
                     ForEach(MenuBarPercent.allCases) { Text($0.title).tag($0) }
                 }

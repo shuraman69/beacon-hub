@@ -71,6 +71,8 @@ struct NoteCard: View {
                     .lineLimit(1)
                 Spacer(minLength: 4)
                 if hovering {
+                    Button(action: open) { Image(systemName: "pencil") }
+                        .help("Редактировать")
                     Button { store.update(note.id) { $0.pinned.toggle() } } label: {
                         Image(systemName: note.pinned ? "pin.slash" : "pin")
                     }
@@ -106,6 +108,7 @@ struct NoteCard: View {
         .onTapGesture(perform: open)
         .onHover { hovering = $0 }
         .contextMenu {
+            Button("Редактировать", action: open)
             Button(note.pinned ? "Открепить" : "Закрепить в сводке") { store.update(note.id) { $0.pinned.toggle() } }
             Button("Скопировать текст") { copyToPasteboard(note.markdown, toast: "Заметка скопирована") }
             if note.doneCount > 0 {
@@ -166,6 +169,9 @@ struct NoteDetailView: View {
                     .textFieldStyle(.plain)
                     .font(.title3.weight(.semibold))
                     .focused($focus, equals: .title)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 4)
+                    .background(RoundedRectangle(cornerRadius: 7).fill(Color.primary.opacity(focus == .title ? 0.08 : 0.045)))
                 bodyEditor
                 checklist(note)
                 Text("Создана \(Fmt.relative(note.createdAt)) · изменена \(Fmt.relative(note.updatedAt))")
@@ -187,6 +193,7 @@ struct NoteDetailView: View {
                 Label("Заметки", systemImage: "chevron.left")
             }
             .buttonStyle(.link)
+            Text("· изменения сохраняются сами").font(.caption).foregroundStyle(.tertiary)
             Spacer()
             issueMenu(note)
             Button { store.update(id) { $0.pinned.toggle() } } label: {
@@ -316,8 +323,9 @@ struct EditableCheckRow: View {
                     .frame(width: 16)
             }
             .buttonStyle(.plain)
-            TextField("", text: text)
+            TextField("Пункт", text: text)
                 .textFieldStyle(.plain)
+                .help("Нажми, чтобы изменить текст")
                 .font(.callout)
                 .strikethrough(item.done)
                 .foregroundStyle(item.done ? .secondary : .primary)
@@ -331,7 +339,9 @@ struct EditableCheckRow: View {
         }
         .buttonStyle(.borderless)
         .font(.caption)
-        .padding(.vertical, 2)
+        .padding(.vertical, 3)
+        .padding(.horizontal, 4)
+        .background(RoundedRectangle(cornerRadius: 6).fill(Color.primary.opacity(hovering ? 0.06 : 0)))
         .onHover { hovering = $0 }
     }
 

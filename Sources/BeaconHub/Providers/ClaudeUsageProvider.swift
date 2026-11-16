@@ -21,19 +21,32 @@ enum ClaudeError: LocalizedError {
 enum ClaudeUsageProvider {
     static let endpoint = URL(string: "https://api.anthropic.com/api/oauth/usage")!
 
+    static var requireVPN: Bool { UserDefaults.standard.object(forKey: "claudeRequireVPN") as? Bool ?? true }
+
     static func fetch() async throws -> ClaudeUsage {
         let token = try await ClaudeCredentials.load()
         if let exp = token.expiresAt, exp < Date() { throw ClaudeError.expired }
 
-        var req = URLRequest(url: endpoint)
-        req.timeoutInterval = 20
-        req.setValue("Bearer \(token.accessToken)", forHTTPHeaderField: "Authorization")
-        req.setValue("oauth-2025-04-20", forHTTPHeaderField: "anthropic-beta")
-        req.setValue("application/json", forHTTPHeaderField: "Accept")
-        req.setValue("BeaconHub/\(AppInfo.version)", forHTTPHeaderField: "User-Agent")
+        let headers = [
+            "Authorization": "Bearer \(token.accessToken)",
+            "anthropic-beta": "oauth-2025-04-20",
+            "Accept": "application/json",
+            "User-Agent": "BeaconHub/\(AppInfo.version)",
+        ]
 
-        let (data, resp) = try await URLSession.shared.data(for: req)
-        let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
+        let data: Data
+        let code: Int
+        if requireVPN {
+            // Только через VPN: без туннеля или прокси запрос физически не уходит, см. VPNOnlyHTTP.
+            let r = try await VPNOnlyHTTP.get(endpoint, headers: headers)
+            (data, code) = (r.body, r.status)
+        } else {
+            var req = URLRequest(url: endpoint)
+            req.timeoutInterval = 20
+            headers.forEach { req.setValue($1, forHTTPHeaderField: $0) }
+            let (d, resp) = try await URLSession.shared.data(for: req)
+            (data, code) = (d, (resp as? HTTPURLResponse)?.statusCode ?? 0)
+        }
         switch code {
         case 200..<300: break
         case 401, 403: throw ClaudeError.expired

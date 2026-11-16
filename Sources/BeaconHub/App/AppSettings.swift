@@ -36,6 +36,8 @@ final class AppSettings: ObservableObject {
     @Published var notifyFailed: Bool { didSet { defaults.set(notifyFailed, forKey: "notifyFailed") } }
     @Published var notifySuccess: Bool { didSet { defaults.set(notifySuccess, forKey: "notifySuccess") } }
     @Published var showClaude: Bool { didSet { defaults.set(showClaude, forKey: "showClaude") } }
+    /// Запросы к Claude только через VPN (туннель или системный прокси).
+    @Published var claudeRequireVPN: Bool { didSet { defaults.set(claudeRequireVPN, forKey: "claudeRequireVPN") } }
     @Published var showGitLab: Bool { didSet { defaults.set(showGitLab, forKey: "showGitLab") } }
     @Published var showNotes: Bool { didSet { defaults.set(showNotes, forKey: "showNotes") } }
 
@@ -79,6 +81,7 @@ final class AppSettings: ObservableObject {
         notifyFailed = d.object(forKey: "notifyFailed") as? Bool ?? true
         notifySuccess = d.object(forKey: "notifySuccess") as? Bool ?? false
         showClaude = d.object(forKey: "showClaude") as? Bool ?? true
+        claudeRequireVPN = d.object(forKey: "claudeRequireVPN") as? Bool ?? true
         showGitLab = d.object(forKey: "showGitLab") as? Bool ?? true
         showNotes = d.object(forKey: "showNotes") as? Bool ?? true
 
